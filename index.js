@@ -8,6 +8,8 @@ import { open } from 'sqlite';
 import { availableParallelism } from 'node:os';
 import cluster from 'node:cluster';
 import { createAdapter, setupPrimary } from '@socket.io/cluster-adapter';
+import {astFusion as myQuickJSAddon} from "ast-fusion-addon"
+
 
 if (cluster.isPrimary) {
   const numCPUs = availableParallelism();
@@ -35,6 +37,9 @@ if (cluster.isPrimary) {
   const app = express();
   const server = createServer(app);
   const io = new Server(server, {
+    cors: {
+      origin: "http://localhost:8000"
+    },
     connectionStateRecovery: {},
     adapter: createAdapter()
   });
@@ -47,6 +52,39 @@ if (cluster.isPrimary) {
 
   io.on('connection', async (socket) => {
     socket.on('chat message', async (msg, clientOffset, callback) => {
+      console.log({ msg})
+      let myfunction;   
+      if (msg) {
+        myfunction = myQuickJSAddon.myFunction(`${msg}`, "20");
+        console.log({ myfunction });
+      }
+      
+
+      const resul = myQuickJSAddon.processArgs(42,'s36s',6);
+      console.log(resul); 
+
+
+      // Define a JavaScript function to be called from C
+      function myCallback(x) {
+          console.log('JavaScript function called from C!',x);
+          return 'Hello from JavaScript!';
+      }
+
+      function AddTwo(num) {
+          console.log({ num})
+          return num + 23.23 +"HI";
+      }
+
+      global.AddTwo = AddTwo;
+      // Call the C function from the native addon
+      const cb_result = myQuickJSAddon.callBackFunction(myCallback);
+
+      console.log('Result from C:', JSON.stringify(cb_result));
+
+
+      // Call the C/C++ function from Node.js
+      // console.log({ module }, module.children[0])
+      const apiResponse =  myQuickJSAddon.callNodeFunction("https://api.example.com/data");
       let result;
       try {
         result = await db.run('INSERT INTO messages (content, client_offset) VALUES (?, ?)', msg, clientOffset);
@@ -58,7 +96,7 @@ if (cluster.isPrimary) {
         }
         return;
       }
-      io.emit('chat message', msg, result.lastID);
+      io.emit('chat message', myfunction, result.lastID);
       callback();
     });
 
